@@ -16,3 +16,25 @@ html.aoyt-audio-only .html5-video-container video {
 html:not(.aoyt-audio-only) #aoyt-thumbnail-overlay {
   display: none !important;
 }
+
+/* Data-saver UI: keep the player, hide everything that tends to trigger
+   recommendation/comment/chat image and API traffic. */
+html.aoyt-data-saver #comments,
+html.aoyt-data-saver ytd-comments,
+html.aoyt-data-saver ytd-comments-header-renderer,
+html.aoyt-data-saver #chat,
+html.aoyt-data-saver #chat-container,
+html.aoyt-data-saver ytd-live-chat-frame,
+html.aoyt-data-saver #related,
+html.aoyt-data-saver ytd-watch-next-secondary-results-renderer,
+html.aoyt-data-saver ytd-rich-grid-renderer,
+html.aoyt-data-saver ytd-reel-shelf-renderer,
+html.aoyt-data-saver ytd-shelf-renderer,
+html.aoyt-data-saver ytd-thumbnail,
+html.aoyt-data-saver yt-thumbnail-view-model,
+html.aoyt-data-saver ytd-playlist-thumbnail,
+html.aoyt-data-saver ytd-video-renderer #thumbnail,
+html.aoyt-data-saver ytd-grid-video-renderer #thumbnail,
+html.aoyt-data-saver ytd-rich-item-renderer #thumbnail {
+  display: none !important;
+}

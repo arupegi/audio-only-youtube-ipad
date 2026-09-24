@@ -2,6 +2,7 @@ const ext = globalThis.browser ?? globalThis.chrome;
 let enabled = true;
 let dataSaverEnabled = true;
 let lastUrl = location.href;
+let lastVideoId = null;
 
 function getVideoId() {
   try {
@@ -16,10 +17,19 @@ function getVideoId() {
   return null;
 }
 
+async function syncCurrentVideoId() {
+  const id = getVideoId();
+  if (id === lastVideoId) return;
+  lastVideoId = id;
+  try {
+    await ext.runtime.sendMessage({ type: "SET_CURRENT_VIDEO_ID", videoId: id });
+  } catch (_) {}
+}
+
 function currentThumbnail() {
   const id = getVideoId();
   if (id && dataSaverEnabled) {
-    // 高解像度画像を避け、拡張UI/オーバーレイ用には軽い320x180を使用。
+    // Keep only a small thumbnail for the current video.
     return `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
   }
   const meta = document.querySelector('meta[property="og:image"]');
@@ -27,8 +37,43 @@ function currentThumbnail() {
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
 }
 
+function suppressDataHeavyUi() {
+  document.documentElement.classList.toggle("aoyt-data-saver", enabled && dataSaverEnabled);
+
+  if (!(enabled && dataSaverEnabled)) return;
+
+  // Stop live-chat frames before they can keep polling.
+  document.querySelectorAll(
+    'ytd-live-chat-frame, #chat, #chat-container, iframe[src*="/live_chat"], iframe[src*="live_chat_replay"]'
+  ).forEach((node) => {
+    try {
+      if (node.tagName === "IFRAME") node.src = "about:blank";
+      node.setAttribute("hidden", "");
+      node.style.setProperty("display", "none", "important");
+    } catch (_) {}
+  });
+
+  // Comments are normally lazy-loaded. Keeping them out of layout prevents
+  // the usual scroll/intersection trigger and avoids avatars/replies loading.
+  document.querySelectorAll('#comments, ytd-comments, ytd-comments-header-renderer').forEach((node) => {
+    node.setAttribute("hidden", "");
+    node.style.setProperty("display", "none", "important");
+  });
+
+  // Recommendation surfaces are hidden as well; their thumbnail image requests
+  // are independently blocked by declarativeNetRequest.
+  document.querySelectorAll(
+    '#related, ytd-watch-next-secondary-results-renderer, ytd-rich-grid-renderer, ytd-reel-shelf-renderer, ytd-shelf-renderer'
+  ).forEach((node) => {
+    node.setAttribute("hidden", "");
+    node.style.setProperty("display", "none", "important");
+  });
+}
+
 function updateOverlay() {
   document.documentElement.classList.toggle("aoyt-audio-only", enabled);
+  suppressDataHeavyUi();
+  syncCurrentVideoId();
 
   const player = document.querySelector("#movie_player") || document.querySelector(".html5-video-player");
   if (!player) return;
@@ -81,14 +126,22 @@ ext.runtime.onMessage.addListener((message) => {
   }
 });
 
-const observer = new MutationObserver(() => {
-  if (location.href !== lastUrl) {
-    lastUrl = location.href;
-    setTimeout(updateOverlay, 250);
-  }
-  updateOverlay();
-});
+let scheduled = false;
+function scheduleUpdate() {
+  if (scheduled) return;
+  scheduled = true;
+  requestAnimationFrame(() => {
+    scheduled = false;
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      lastVideoId = null;
+    }
+    updateOverlay();
+  });
+}
+
+const observer = new MutationObserver(scheduleUpdate);
 
 loadState();
 observer.observe(document.documentElement, { subtree: true, childList: true });
-window.addEventListener("yt-navigate-finish", () => setTimeout(updateOverlay, 100));
+window.addEventListener("yt-navigate-finish", () => setTimeout(scheduleUpdate, 50));
