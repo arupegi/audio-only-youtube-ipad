@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Audio Only YouTube for iPad",
+  "version": "0.4.0",
+  "description": "YouTubeの映像通信を抑え、iPad Safariで音声中心に再生するSafari Web Extensionです。",
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "*://youtube.com/*",
+    "*://youtu.be/*",
+    "*://*.googlevideo.com/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Audio Only YouTube",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icons/icon.svg",
+      "96": "icons/icon.svg"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://youtube.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg",
+    "128": "icons/icon.svg"
+  }
+}

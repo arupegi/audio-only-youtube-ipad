@@ -1,0 +1,110 @@
+workflows:
+  ios-unsigned-altstore:
+    name: Audio Only YouTube - Unsigned IPA for AltStore
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+
+    environment:
+      xcode: latest
+      vars:
+        APP_NAME: "AudioOnlyYouTube"
+        BUNDLE_ID: "com.audioonlyyoutube.ipad"
+
+    scripts:
+      - name: Check source
+        script: |
+          set -euo pipefail
+          echo "Build directory: $CM_BUILD_DIR"
+          test -f "$CM_BUILD_DIR/extension/manifest.json"
+          /usr/bin/python3 -m json.tool "$CM_BUILD_DIR/extension/manifest.json" >/dev/null
+          xcodebuild -version
+          xcrun --find safari-web-extension-packager
+
+      - name: Generate Safari Web Extension Xcode project
+        script: |
+          set -euo pipefail
+          rm -rf "$CM_BUILD_DIR/generated"
+          mkdir -p "$CM_BUILD_DIR/generated"
+
+          xcrun safari-web-extension-packager \
+            "$CM_BUILD_DIR/extension" \
+            --project-location "$CM_BUILD_DIR/generated" \
+            --app-name "$APP_NAME" \
+            --bundle-identifier "$BUNDLE_ID" \
+            --swift \
+            --ios-only
+
+          echo "Generated projects:"
+          find "$CM_BUILD_DIR/generated" -name '*.xcodeproj' -print
+
+      - name: Detect Xcode project and scheme
+        script: |
+          set -euo pipefail
+          PROJECT="$(find "$CM_BUILD_DIR/generated" -name '*.xcodeproj' -print -quit)"
+          if [ -z "$PROJECT" ]; then
+            echo "No Xcode project was generated."
+            exit 1
+          fi
+
+          xcodebuild -project "$PROJECT" -list -json > "$CM_BUILD_DIR/xcode-list.json"
+
+          SCHEME="$(python3 -c 'import json,os,pathlib; p=pathlib.Path(os.environ["CM_BUILD_DIR"])/"xcode-list.json"; d=json.loads(p.read_text()); schemes=d.get("project",{}).get("schemes",[]); assert schemes, "No Xcode scheme found"; preferred=[s for s in schemes if "extension" not in s.lower()]; print((preferred or schemes)[0])')"
+
+          printf 'PROJECT=%s\nSCHEME=%s\n' "$PROJECT" "$SCHEME" | tee "$CM_BUILD_DIR/build-vars.txt"
+
+      - name: Build unsigned iOS app
+        script: |
+          set -euo pipefail
+          PROJECT="$(sed -n 's/^PROJECT=//p' "$CM_BUILD_DIR/build-vars.txt")"
+          SCHEME="$(sed -n 's/^SCHEME=//p' "$CM_BUILD_DIR/build-vars.txt")"
+
+          rm -rf "$CM_BUILD_DIR/build"
+          mkdir -p "$CM_BUILD_DIR/build"
+
+          set -o pipefail
+          xcodebuild build \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$CM_BUILD_DIR/build/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | tee "$CM_BUILD_DIR/build/xcodebuild.log"
+
+      - name: Package unsigned IPA for AltStore
+        script: |
+          set -euo pipefail
+          APP="$(find "$CM_BUILD_DIR/build/DerivedData/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' -print -quit)"
+          if [ -z "$APP" ]; then
+            echo "No .app found after build."
+            find "$CM_BUILD_DIR/build/DerivedData/Build/Products" -maxdepth 4 -print || true
+            exit 1
+          fi
+
+          rm -rf "$CM_BUILD_DIR/output" "$CM_BUILD_DIR/Payload"
+          mkdir -p "$CM_BUILD_DIR/output" "$CM_BUILD_DIR/Payload"
+          cp -R "$APP" "$CM_BUILD_DIR/Payload/"
+
+          cd "$CM_BUILD_DIR"
+          /usr/bin/zip -qry "$CM_BUILD_DIR/output/AudioOnlyYouTube-unsigned.ipa" Payload
+
+          echo "Created:"
+          ls -lh "$CM_BUILD_DIR/output/AudioOnlyYouTube-unsigned.ipa"
+          echo "Embedded extensions:"
+          find "$CM_BUILD_DIR/Payload" -type d -name '*.appex' -print || true
+
+    artifacts:
+      - output/*.ipa
+      - build/xcodebuild.log
+      - xcode-list.json

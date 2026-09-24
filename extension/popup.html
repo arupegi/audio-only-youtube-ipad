@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Audio Only YouTube</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <section class="header">
+      <div>
+        <h1>Audio Only</h1>
+        <p>YouTube for iPad</p>
+      </div>
+      <label class="switch" aria-label="音声のみモード">
+        <input id="toggle" type="checkbox">
+        <span class="slider"></span>
+      </label>
+    </section>
+
+    <div id="status" class="status">読み込み中…</div>
+
+    <section class="saver-card">
+      <div class="saver-row">
+        <div>
+          <div class="saver-title">通信節約</div>
+          <div class="saver-sub">映像・ストーリーボードを読み込まず、軽量サムネイルを使用</div>
+        </div>
+        <label class="switch compact" aria-label="通信節約モード">
+          <input id="dataSaver" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <section class="video-card">
+      <div class="thumb-wrap">
+        <img id="thumbnail" alt="" hidden>
+        <div id="thumbPlaceholder" class="thumb-placeholder">YouTube</div>
+      </div>
+      <div class="video-meta">
+        <div id="videoTitle" class="video-title">動画を確認中…</div>
+        <div id="videoUrl" class="video-url"></div>
+      </div>
+    </section>
+
+    <section class="download-card">
+      <h2>音声ダウンロード</h2>
+
+      <label class="field">
+        <span>音質</span>
+        <select id="quality">
+          <option value="efficient" selected>おすすめ（高音質・低通信量）</option>
+          <option value="best">最高音質（元音源）</option>
+          <option value="256">256 kbps</option>
+          <option value="192">192 kbps</option>
+          <option value="128">128 kbps</option>
+          <option value="96">96 kbps</option>
+          <option value="64">64 kbps</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>形式</span>
+        <select id="format">
+          <option value="source" selected>元音源のまま（最小通信量）</option>
+          <option value="m4a">M4A</option>
+          <option value="mp3">MP3</option>
+        </select>
+      </label>
+
+      <div id="usageHint" class="usage-hint"></div>
+
+      <button id="downloadButton" class="primary" type="button">Safariでダウンロード</button>
+      <div id="downloadStatus" class="download-status"></div>
+    </section>
+
+    <details class="settings">
+      <summary>サーバー設定</summary>
+      <label class="field server-field">
+        <span>変換サーバーURL</span>
+        <input id="serverUrl" type="url" inputmode="url" placeholder="https://example.com">
+      </label>
+      <button id="saveServer" class="secondary" type="button">保存</button>
+      <p class="note">iPad版では音声の取得・変換をサーバー側で行い、完成したファイルをSafariのダウンロードとして開きます。</p>
+    </details>
+
+    <p class="note">音声のみモード切替後、再生中の動画を一度再読み込みすると確実です。</p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+html.aoyt-audio-only #movie_player video,
+html.aoyt-audio-only .html5-video-container video {
+  opacity: 0 !important;
+}
+
+#aoyt-thumbnail-overlay {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 1;
+}
+
+html:not(.aoyt-audio-only) #aoyt-thumbnail-overlay {
+  display: none !important;
+}
