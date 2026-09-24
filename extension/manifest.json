@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Audio Only YouTube for iPad",
-  "version": "0.6.0",
-  "description": "YouTubeの映像・シークプレビュー・関連サムネイル・ライブチャット等の通信を抑え、iPad Safariで音声中心に再生するSafari Web Extensionです。",
+  "version": "0.7.0",
+  "description": "YouTubeの映像通信を通常再生・ミニプレイヤー・PIPでもネットワーク層で遮断し、シーク画像・関連サムネイル・ライブチャット等も抑えるiPad Safari向け音声専用Web Extensionです。",
   "permissions": [
     "storage",
     "declarativeNetRequest",

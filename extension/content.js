@@ -106,10 +106,49 @@ function suppressDataHeavyUi() {
   });
 }
 
+
+function hardenVideoElements() {
+  if (!enabled) return;
+
+  const thumb = currentThumbnail();
+  document.querySelectorAll("video").forEach((video) => {
+    try {
+      // Keep the HTMLMediaElement available for audio controls/miniplayer/PiP,
+      // but never expose the video surface in the page. Network blocking is
+      // enforced separately by declarativeNetRequest.
+      video.style.setProperty("opacity", "0", "important");
+      video.style.setProperty("visibility", "hidden", "important");
+      if (thumb) video.setAttribute("poster", thumb);
+      video.setAttribute("data-aoyt-video-blocked", "1");
+    } catch (_) {}
+  });
+}
+
+function watchPictureInPicture() {
+  document.querySelectorAll("video").forEach((video) => {
+    if (video.dataset.aoytPipBound === "1") return;
+    video.dataset.aoytPipBound = "1";
+
+    video.addEventListener("enterpictureinpicture", () => {
+      // PiP may cause YouTube to switch its internal rendition. Re-apply state
+      // immediately; network rules continue blocking all identified video media.
+      hardenVideoElements();
+      syncCurrentVideoId();
+    });
+
+    video.addEventListener("webkitpresentationmodechanged", () => {
+      hardenVideoElements();
+      syncCurrentVideoId();
+    });
+  });
+}
+
 function updateOverlay() {
   document.documentElement.classList.toggle("aoyt-audio-only", enabled);
   suppressDataHeavyUi();
   suppressSeekPreview();
+  hardenVideoElements();
+  watchPictureInPicture();
   syncCurrentVideoId();
 
   const player = document.querySelector("#movie_player") || document.querySelector(".html5-video-player");
