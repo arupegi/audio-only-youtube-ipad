@@ -38,3 +38,16 @@ html.aoyt-data-saver ytd-grid-video-renderer #thumbnail,
 html.aoyt-data-saver ytd-rich-item-renderer #thumbnail {
   display: none !important;
 }
+
+
+/* Never show seek-bar image previews in data-saver mode. */
+html.aoyt-data-saver .ytp-tooltip-bg,
+html.aoyt-data-saver .ytp-tooltip,
+html.aoyt-data-saver .ytp-preview,
+html.aoyt-data-saver .ytp-storyboard-framepreview,
+html.aoyt-data-saver .ytp-storyboard-framepreview-img,
+html.aoyt-data-saver .ytp-storyboard-framepreview-image,
+html.aoyt-data-saver .ytp-progress-tooltip {
+  display: none !important;
+  background-image: none !important;
+}

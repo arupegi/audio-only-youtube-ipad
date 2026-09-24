@@ -37,6 +37,42 @@ function currentThumbnail() {
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
 }
 
+
+function suppressSeekPreview() {
+  if (!(enabled && dataSaverEnabled)) return;
+
+  // Remove/hide YouTube seek preview and storyboard elements.
+  document.querySelectorAll([
+    ".ytp-tooltip-bg",
+    ".ytp-tooltip",
+    ".ytp-preview",
+    ".ytp-storyboard-framepreview",
+    ".ytp-storyboard-framepreview-img",
+    ".ytp-storyboard-framepreview-image",
+    ".ytp-hover-progress-light",
+    ".ytp-progress-tooltip"
+  ].join(",")).forEach((node) => {
+    try {
+      node.style.setProperty("display", "none", "important");
+      node.style.setProperty("background-image", "none", "important");
+      if (node.tagName === "IMG") {
+        node.removeAttribute("src");
+        node.removeAttribute("srcset");
+      }
+    } catch (_) {}
+  });
+
+  // Some preview nodes are created with inline background-image URLs.
+  document.querySelectorAll('[style*="ytimg.com/sb/"], img[src*="ytimg.com/sb/"], img[srcset*="ytimg.com/sb/"]').forEach((node) => {
+    try {
+      node.style.setProperty("display", "none", "important");
+      node.style.setProperty("background-image", "none", "important");
+      node.removeAttribute?.("src");
+      node.removeAttribute?.("srcset");
+    } catch (_) {}
+  });
+}
+
 function suppressDataHeavyUi() {
   document.documentElement.classList.toggle("aoyt-data-saver", enabled && dataSaverEnabled);
 
@@ -73,6 +109,7 @@ function suppressDataHeavyUi() {
 function updateOverlay() {
   document.documentElement.classList.toggle("aoyt-audio-only", enabled);
   suppressDataHeavyUi();
+  suppressSeekPreview();
   syncCurrentVideoId();
 
   const player = document.querySelector("#movie_player") || document.querySelector(".html5-video-player");

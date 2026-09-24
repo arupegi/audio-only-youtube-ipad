@@ -5,6 +5,7 @@ const STORYBOARD_RULE_ID = 1002;
 const OTHER_THUMBNAILS_RULE_ID = 1003;
 const CURRENT_THUMBNAIL_ALLOW_RULE_ID = 1004;
 const LIVE_CHAT_RULE_ID = 1005;
+const STORYBOARD_ENDPOINT_RULE_ID = 1006;
 
 let currentVideoId = null;
 
@@ -28,6 +29,20 @@ function makeStoryboardBlockRule() {
     action: { type: "block" },
     condition: {
       regexFilter: "^https?://i\\.ytimg\\.com/sb/",
+      resourceTypes: ["image", "xmlhttprequest", "other"]
+    }
+  };
+}
+
+
+function makeStoryboardEndpointBlockRule() {
+  return {
+    id: STORYBOARD_ENDPOINT_RULE_ID,
+    priority: 2,
+    action: { type: "block" },
+    condition: {
+      // Block storyboard / seek-preview image endpoints that may be fetched lazily.
+      regexFilter: "^https?://(?:www\.)?youtube\.com/(?:api/)?storyboard",
       resourceTypes: ["image", "xmlhttprequest", "other"]
     }
   };
@@ -78,6 +93,7 @@ async function applyRules(audioOnlyEnabled, dataSaverEnabled) {
 
   if (audioOnlyEnabled && dataSaverEnabled) {
     addRules.push(makeStoryboardBlockRule());
+    addRules.push(makeStoryboardEndpointBlockRule());
     addRules.push(makeOtherThumbnailsBlockRule());
     addRules.push(makeLiveChatBlockRule());
     if (currentVideoId) addRules.push(makeCurrentThumbnailAllowRule(currentVideoId));
@@ -90,7 +106,8 @@ async function applyRules(audioOnlyEnabled, dataSaverEnabled) {
         STORYBOARD_RULE_ID,
         OTHER_THUMBNAILS_RULE_ID,
         CURRENT_THUMBNAIL_ALLOW_RULE_ID,
-        LIVE_CHAT_RULE_ID
+        LIVE_CHAT_RULE_ID,
+        STORYBOARD_ENDPOINT_RULE_ID
       ],
       addRules
     });
