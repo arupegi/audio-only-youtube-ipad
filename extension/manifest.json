@@ -24,8 +24,8 @@
     "default_title": "Audio Only YouTube",
     "default_popup": "popup.html",
     "default_icon": {
-      "48": "icons/icon.svg",
-      "96": "icons/icon.svg"
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
     }
   },
   "content_scripts": [
@@ -44,8 +44,8 @@
     }
   ],
   "icons": {
-    "48": "icons/icon.svg",
-    "96": "icons/icon.svg",
-    "128": "icons/icon.svg"
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
   }
 }

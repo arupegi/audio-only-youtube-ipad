@@ -16,7 +16,7 @@ workflows:
       xcode: latest
       vars:
         APP_NAME: "AudioOnlyYouTube"
-        BUNDLE_ID: "com.audioonlyyoutube.ipad"
+        BUNDLE_ID: "com.audioonlyyoutube.AudioOnlyYouTube"
 
     scripts:
       - name: Check source
@@ -44,6 +44,9 @@ workflows:
 
           echo "Generated projects:"
           find "$CM_BUILD_DIR/generated" -name '*.xcodeproj' -print
+
+          echo "Generated bundle identifiers:"
+          grep -R "PRODUCT_BUNDLE_IDENTIFIER" "$CM_BUILD_DIR/generated" --include='project.pbxproj' || true
 
       - name: Detect Xcode project and scheme
         script: |

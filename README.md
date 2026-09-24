@@ -63,3 +63,11 @@ Codemagic では現在、コンテナアプリの Bundle ID を次に設定し�
 ## 注意
 
 この workflow は App Store 用の署名を行いません。Codemagic 側に Apple Developer Program の証明書を登録する必要はありません。実機へのインストール時の署名は AltStore 側で行う想定です。
+
+## Fix in v2
+The containing iOS app and Safari extension must use a bundle-ID prefix relationship.
+This version uses:
+- App: `com.audioonlyyoutube.AudioOnlyYouTube`
+- Extension: `com.audioonlyyoutube.AudioOnlyYouTube.Extension`
+
+It also uses real PNG icon files so Xcode's PNG processing does not receive an SVG disguised as an app icon.
