@@ -108,39 +108,94 @@ function suppressDataHeavyUi() {
 
 
 function hardenVideoElements() {
-  if (!enabled) return;
-
   const thumb = currentThumbnail();
   document.querySelectorAll("video").forEach((video) => {
     try {
-      // Keep the HTMLMediaElement available for audio controls/miniplayer/PiP,
-      // but never expose the video surface in the page. Network blocking is
-      // enforced separately by declarativeNetRequest.
-      video.style.setProperty("opacity", "0", "important");
-      video.style.setProperty("visibility", "hidden", "important");
-      if (thumb) video.setAttribute("poster", thumb);
-      video.setAttribute("data-aoyt-video-blocked", "1");
+      if (enabled) {
+        // CSS cannot hide native iPad PiP frames. Disable native PiP while
+        // audio-only mode is active and keep the element inline for audio.
+        video.disablePictureInPicture = true;
+        video.setAttribute("disablepictureinpicture", "");
+        video.setAttribute("playsinline", "");
+        video.setAttribute("webkit-playsinline", "");
+        video.style.setProperty("opacity", "0", "important");
+        video.style.setProperty("visibility", "hidden", "important");
+        if (thumb) video.setAttribute("poster", thumb);
+        video.setAttribute("data-aoyt-video-blocked", "1");
+      } else {
+        video.disablePictureInPicture = false;
+        video.removeAttribute("disablepictureinpicture");
+        video.removeAttribute("data-aoyt-video-blocked");
+        video.style.removeProperty("opacity");
+        video.style.removeProperty("visibility");
+      }
     } catch (_) {}
   });
 }
 
+function forceExitPictureInPicture(video) {
+  if (!enabled || !video) return;
+  try {
+    if (document.pictureInPictureElement === video && document.exitPictureInPicture) {
+      document.exitPictureInPicture().catch?.(() => {});
+    }
+  } catch (_) {}
+  try {
+    // Safari/iPad proprietary presentation API.
+    if (video.webkitPresentationMode === "picture-in-picture" && video.webkitSetPresentationMode) {
+      video.webkitSetPresentationMode("inline");
+    }
+  } catch (_) {}
+}
+
 function watchPictureInPicture() {
   document.querySelectorAll("video").forEach((video) => {
-    if (video.dataset.aoytPipBound === "1") return;
-    video.dataset.aoytPipBound = "1";
+    if (video.dataset.aoytPipBound !== "1") {
+      video.dataset.aoytPipBound = "1";
 
-    video.addEventListener("enterpictureinpicture", () => {
-      // PiP may cause YouTube to switch its internal rendition. Re-apply state
-      // immediately; network rules continue blocking all identified video media.
-      hardenVideoElements();
-      syncCurrentVideoId();
-    });
+      video.addEventListener("enterpictureinpicture", () => {
+        forceExitPictureInPicture(video);
+        hardenVideoElements();
+        syncCurrentVideoId();
+      });
 
-    video.addEventListener("webkitpresentationmodechanged", () => {
-      hardenVideoElements();
-      syncCurrentVideoId();
-    });
+      video.addEventListener("webkitpresentationmodechanged", () => {
+        forceExitPictureInPicture(video);
+        hardenVideoElements();
+        syncCurrentVideoId();
+      });
+    }
+
+    forceExitPictureInPicture(video);
   });
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+async function refreshTrafficBadge() {
+  let badge = document.getElementById("aoyt-traffic-badge");
+  if (!enabled) {
+    badge?.remove();
+    return;
+  }
+  const player = document.querySelector("#movie_player") || document.querySelector(".html5-video-player");
+  if (!player) return;
+  if (!badge) {
+    badge = document.createElement("div");
+    badge.id = "aoyt-traffic-badge";
+    player.appendChild(badge);
+  }
+  try {
+    const usage = await ext.runtime.sendMessage({ type: "GET_USAGE" });
+    badge.textContent = `受信 ${formatBytes(usage?.total || 0)} / 音声 ${formatBytes(usage?.audio || 0)}`;
+    badge.title = "このタブで拡張機能が観測できた通信量の概算";
+  } catch (_) {}
 }
 
 function updateOverlay() {
@@ -150,6 +205,7 @@ function updateOverlay() {
   hardenVideoElements();
   watchPictureInPicture();
   syncCurrentVideoId();
+  refreshTrafficBadge();
 
   const player = document.querySelector("#movie_player") || document.querySelector(".html5-video-player");
   if (!player) return;
@@ -221,3 +277,10 @@ const observer = new MutationObserver(scheduleUpdate);
 loadState();
 observer.observe(document.documentElement, { subtree: true, childList: true });
 window.addEventListener("yt-navigate-finish", () => setTimeout(scheduleUpdate, 50));
+
+setInterval(() => {
+  if (enabled) {
+    watchPictureInPicture();
+    refreshTrafficBadge();
+  }
+}, 2000);

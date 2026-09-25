@@ -194,6 +194,89 @@ async function readState() {
   };
 }
 
+
+
+// Approximate received-byte counter. We sum Content-Length from responses that
+// Safari exposes to the WebExtension. This is useful for comparing modes, but
+// it is not a carrier/billing-grade traffic meter (cache/protocol overhead and
+// responses without Content-Length may not be represented exactly).
+const usageByTab = new Map();
+const AUDIO_ITAGS = new Set([139, 140, 141, 249, 250, 251, 256, 258, 325, 328]);
+const VIDEO_ITAGS = new Set([
+  17,18,22,37,38,133,134,135,136,137,160,212,264,266,242,243,244,247,248,
+  271,272,278,298,299,302,303,308,313,315,330,331,332,333,334,335,336,337,
+  394,395,396,397,398,399,400,401,571
+]);
+
+function emptyUsage() {
+  return { total: 0, audio: 0, video: 0, images: 0, other: 0, responses: 0, updatedAt: Date.now() };
+}
+
+function getUsage(tabId) {
+  if (!usageByTab.has(tabId)) usageByTab.set(tabId, emptyUsage());
+  return usageByTab.get(tabId);
+}
+
+function queryParamLoose(url, key) {
+  try {
+    const u = new URL(url);
+    const direct = u.searchParams.get(key);
+    if (direct != null) return direct;
+    const decoded = decodeURIComponent(url);
+    const m = decoded.match(new RegExp('(?:[?&]|%26)' + key + '(?:=|%3D)([^&%]+)', 'i'));
+    return m ? m[1] : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function classifyRequest(url, type) {
+  const lower = String(url || '').toLowerCase();
+  if (lower.includes('googlevideo.com')) {
+    const mime = String(queryParamLoose(url, 'mime') || '').toLowerCase();
+    const itag = Number(queryParamLoose(url, 'itag'));
+    if (mime.startsWith('audio/') || AUDIO_ITAGS.has(itag)) return 'audio';
+    if (mime.startsWith('video/') || VIDEO_ITAGS.has(itag)) return 'video';
+    return 'other';
+  }
+  if (lower.includes('ytimg.com') || type === 'image') return 'images';
+  return 'other';
+}
+
+function contentLengthFromHeaders(headers) {
+  if (!Array.isArray(headers)) return 0;
+  for (const h of headers) {
+    if (String(h?.name || '').toLowerCase() === 'content-length') {
+      const n = Number(h.value);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+  }
+  return 0;
+}
+
+try {
+  ext.webRequest?.onHeadersReceived?.addListener(
+    (details) => {
+      if (details.tabId == null || details.tabId < 0) return;
+      if (![200, 206].includes(details.statusCode)) return;
+      const url = String(details.url || '');
+      if (!/(?:youtube\.com|googlevideo\.com|ytimg\.com)/i.test(url)) return;
+      const bytes = contentLengthFromHeaders(details.responseHeaders);
+      if (!bytes) return;
+      const usage = getUsage(details.tabId);
+      const bucket = classifyRequest(url, details.type);
+      usage.total += bytes;
+      usage[bucket] += bytes;
+      usage.responses += 1;
+      usage.updatedAt = Date.now();
+    },
+    { urls: ['*://*.youtube.com/*', '*://youtube.com/*', '*://*.googlevideo.com/*', '*://*.ytimg.com/*'] },
+    ['responseHeaders']
+  );
+} catch (error) {
+  console.warn('Audio Only YouTube: traffic counter unavailable', error);
+}
+
 ext.runtime.onInstalled.addListener(async () => {
   const state = await readState();
   await applyRules(state.audioOnlyEnabled, state.dataSaverEnabled);
@@ -204,7 +287,7 @@ ext.runtime.onStartup?.addListener(async () => {
   await applyRules(state.audioOnlyEnabled, state.dataSaverEnabled);
 });
 
-ext.runtime.onMessage.addListener(async (message) => {
+ext.runtime.onMessage.addListener(async (message, sender) => {
   if (message?.type === "SET_AUDIO_ONLY") {
     const state = await readState();
     return applyRules(Boolean(message.enabled), state.dataSaverEnabled);
@@ -219,5 +302,16 @@ ext.runtime.onMessage.addListener(async (message) => {
     currentVideoId = typeof message.videoId === "string" && message.videoId ? message.videoId : null;
     const state = await readState();
     return applyRules(state.audioOnlyEnabled, state.dataSaverEnabled);
+  }
+
+  if (message?.type === "GET_USAGE") {
+    const tabId = Number.isInteger(message.tabId) ? message.tabId : sender?.tab?.id;
+    return tabId >= 0 ? { ...getUsage(tabId) } : emptyUsage();
+  }
+
+  if (message?.type === "RESET_USAGE") {
+    const tabId = Number.isInteger(message.tabId) ? message.tabId : sender?.tab?.id;
+    if (tabId >= 0) usageByTab.set(tabId, emptyUsage());
+    return tabId >= 0 ? { ...getUsage(tabId) } : emptyUsage();
   }
 });

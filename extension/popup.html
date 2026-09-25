@@ -25,13 +25,35 @@
       <div class="saver-row">
         <div>
           <div class="saver-title">通信節約</div>
-          <div class="saver-sub">映像・他サムネイル・ライブチャットを遮断し、コメント/関連欄を非表示</div>
+          <div class="saver-sub">映像・PIP映像・他サムネイル・ライブチャットを遮断し、コメント/関連欄を非表示</div>
         </div>
         <label class="switch compact" aria-label="通信節約モード">
           <input id="dataSaver" type="checkbox">
           <span class="slider"></span>
         </label>
       </div>
+    </section>
+
+
+    <section class="traffic-card">
+      <div class="traffic-head">
+        <div>
+          <div class="traffic-title">通信量（概算）</div>
+          <div class="traffic-sub">現在のYouTubeタブで観測できた受信量</div>
+        </div>
+        <div class="traffic-actions">
+          <button id="exportUsage" class="traffic-export" type="button">CSV出力</button>
+          <button id="resetUsage" class="traffic-reset" type="button">リセット</button>
+        </div>
+      </div>
+      <div id="trafficTotal" class="traffic-total">0 B</div>
+      <div class="traffic-grid">
+        <span>音声 <b id="trafficAudio">0 B</b></span>
+        <span>画像 <b id="trafficImages">0 B</b></span>
+        <span>その他 <b id="trafficOther">0 B</b></span>
+      </div>
+      <div id="exportStatus" class="traffic-export-status"></div>
+      <div class="traffic-note">CSVには日時・動画タイトル・URL・合計/音声/画像/その他のバイト数を出力します。キャッシュ、HTTP/TLSオーバーヘッド、Content-Lengthを取得できない通信は含まれない場合があります。</div>
     </section>
 
     <section class="video-card">

@@ -67,3 +67,28 @@ html.aoyt-audio-only ytd-miniplayer #movie_player,
 html.aoyt-audio-only .ytp-miniplayer-ui {
   background: #000 !important;
 }
+
+
+/* In strict audio-only mode PiP is disabled because native iPad PiP renders
+   the raw video frames outside the page's CSS compositor. */
+html.aoyt-audio-only .ytp-pip-button,
+html.aoyt-audio-only button[aria-label*="picture" i],
+html.aoyt-audio-only button[aria-label*="PiP" i] {
+  display: none !important;
+}
+
+#aoyt-traffic-badge {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 9999;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .72);
+  color: #fff;
+  font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+html:not(.aoyt-audio-only) #aoyt-traffic-badge { display: none !important; }

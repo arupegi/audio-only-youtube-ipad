@@ -1,8 +1,8 @@
-# Audio Only YouTube for iPad — Codemagic build (v0.7)
+# Audio Only YouTube for iPad — Codemagic build (v0.8)
 
 Safari Web Extension source intended for Codemagic -> unsigned IPA -> AltStore/iLoader signing.
 
-## v0.7 changes
+## v0.8 changes
 
 - Strict network-layer blocking for YouTube video streams.
 - Blocks explicit `mime=video` Googlevideo requests.
@@ -30,3 +30,16 @@ git push
 ```
 
 Codemagic can then rebuild the unsigned IPA from `codemagic.yaml`.
+
+
+## v0.8 changes
+- Audio-only mode disables native Picture in Picture and forces Safari video presentation back to inline, preventing native PiP from rendering buffered video frames.
+- Adds an approximate traffic meter (total/audio/images/other) using response Content-Length when Safari exposes it.
+- Adds a small live traffic badge on the YouTube player and a detailed card in the extension popup.
+
+
+## v0.9 - 通信量CSVエクスポート
+
+通信量カードに「CSV出力」ボタンを追加しました。iPadでは対応している場合は共有シートを開き、「ファイルに保存」からCSVを保存できます。共有シートが使えない環境では通常のダウンロードを試します。
+
+CSVには export日時、動画タイトル、URL、合計/音声/画像/その他/映像のバイト数、観測レスポンス数、カウンター更新日時を含みます。Excelで日本語が文字化けしにくいようUTF-8 BOM付きです。

@@ -14,6 +14,13 @@ const downloadButton = document.getElementById("downloadButton");
 const downloadStatus = document.getElementById("downloadStatus");
 const serverUrlInput = document.getElementById("serverUrl");
 const saveServerButton = document.getElementById("saveServer");
+const trafficTotal = document.getElementById("trafficTotal");
+const trafficAudio = document.getElementById("trafficAudio");
+const trafficImages = document.getElementById("trafficImages");
+const trafficOther = document.getElementById("trafficOther");
+const resetUsage = document.getElementById("resetUsage");
+const exportUsage = document.getElementById("exportUsage");
+const exportStatus = document.getElementById("exportStatus");
 
 let activeTab = null;
 let currentInfo = null;
@@ -38,6 +45,119 @@ function renderUsageHint() {
 
   if (fmt === "mp3") usageHint.textContent += " MP3は変換が必要なため、元音源のままより効率が落ちる場合があります。";
   if (fmt === "source") usageHint.textContent += " 元音源のままなら余計な再圧縮をしません。";
+}
+
+
+function formatBytes(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function showUsage(usage) {
+  trafficTotal.textContent = formatBytes(usage?.total || 0);
+  trafficAudio.textContent = formatBytes(usage?.audio || 0);
+  trafficImages.textContent = formatBytes(usage?.images || 0);
+  trafficOther.textContent = formatBytes((usage?.other || 0) + (usage?.video || 0));
+}
+
+async function refreshUsage() {
+  try {
+    if (!activeTab) activeTab = await getActiveTab();
+    if (!activeTab?.id) return showUsage(null);
+    const usage = await ext.runtime.sendMessage({ type: "GET_USAGE", tabId: activeTab.id });
+    showUsage(usage);
+  } catch (_) {
+    showUsage(null);
+  }
+}
+
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function safeFilePart(value) {
+  return String(value || "youtube")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60) || "youtube";
+}
+
+async function exportUsageCsv() {
+  exportStatus.textContent = "CSVを作成中…";
+  try {
+    if (!activeTab) activeTab = await getActiveTab();
+    const usage = activeTab?.id
+      ? await ext.runtime.sendMessage({ type: "GET_USAGE", tabId: activeTab.id })
+      : null;
+    if (!currentInfo && activeTab) currentInfo = await readPageInfo(activeTab);
+
+    const now = new Date();
+    const rows = [
+      [
+        "exported_at",
+        "title",
+        "url",
+        "total_bytes",
+        "audio_bytes",
+        "image_bytes",
+        "other_bytes",
+        "video_bytes",
+        "responses",
+        "counter_updated_at"
+      ],
+      [
+        now.toISOString(),
+        currentInfo?.title || activeTab?.title || "YouTube",
+        currentInfo?.url || activeTab?.url || "",
+        usage?.total || 0,
+        usage?.audio || 0,
+        usage?.images || 0,
+        usage?.other || 0,
+        usage?.video || 0,
+        usage?.responses || 0,
+        usage?.updatedAt ? new Date(usage.updatedAt).toISOString() : ""
+      ]
+    ];
+
+    // UTF-8 BOM helps Excel on Windows/iPad recognize Japanese correctly.
+    const csv = "\uFEFF" + rows.map(row => row.map(csvEscape).join(",")).join("\r\n") + "\r\n";
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const stamp = now.toISOString().replace(/[:.]/g, "-");
+    const filename = `youtube-traffic-${safeFilePart(currentInfo?.title)}-${stamp}.csv`;
+    const file = new File([blob], filename, { type: "text/csv" });
+
+    // iPad Safari: prefer the native share sheet so the CSV can be saved to Files.
+    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+      await navigator.share({ files: [file], title: "YouTube通信量 CSV" });
+      exportStatus.textContent = "共有メニューから「ファイルに保存」を選べます。";
+      return;
+    }
+
+    // Desktop/fallback: trigger a normal file download.
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    exportStatus.textContent = "CSVを出力しました。";
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      exportStatus.textContent = "CSV出力をキャンセルしました。";
+    } else {
+      console.error("CSV export failed", error);
+      exportStatus.textContent = "CSV出力に失敗しました。";
+    }
+  }
 }
 
 function normalizeServerUrl(value) {
@@ -128,7 +248,20 @@ async function openDownload() {
   } catch (_) {
     showPageInfo(null);
   }
+  await refreshUsage();
 })();
+
+setInterval(refreshUsage, 1000);
+
+exportUsage.addEventListener("click", exportUsageCsv);
+
+resetUsage.addEventListener("click", async () => {
+  try {
+    if (!activeTab) activeTab = await getActiveTab();
+    const usage = await ext.runtime.sendMessage({ type: "RESET_USAGE", tabId: activeTab?.id });
+    showUsage(usage);
+  } catch (_) {}
+});
 
 toggle.addEventListener("change", async () => {
   const enabled = toggle.checked;
